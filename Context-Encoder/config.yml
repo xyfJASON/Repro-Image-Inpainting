@@ -1,0 +1,19 @@
+use_gpu: true
+exp_name: ~
+
+dataset: celeba
+dataroot: ../../data
+
+epochs: 50
+batch_size: 256
+
+lambda_rec: 0.999
+lambda_adv: 0.001
+
+adam:
+  lr: 0.0002
+  betas: [0.5, 0.999]
+
+sample_per_epochs: 1
+
+save_per_epochs: 10
