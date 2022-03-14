@@ -1,53 +1,57 @@
 import torch
+import numpy as np
+from skimage import metrics
 
 
-class InpaintingEvaluator:
-    def __init__(self, C, H, W):
-        """ Images should be in range [0, 1].
+def MSE(image1, image2, batch: bool = False):
+    assert image1.shape == image2.shape
+    if isinstance(image1, torch.Tensor):
+        image1 = image1.cpu().numpy()
+    if isinstance(image2, torch.Tensor):
+        image2 = image2.cpu().numpy()
+    assert isinstance(image1, np.ndarray) and isinstance(image2, np.ndarray)
 
-        Args:
-            C: #channel of images
-            H: height of images
-            W: width of images
-        """
-        self.C, self.H, self.W = C, H, W
-        self.mse = []
-
-    def reset(self):
-        self.mse = []
-
-    def update(self, imgs_true, imgs_fake):
-        """ Add a batch of image true-fake pairs. """
-        assert (0 <= imgs_true).all() and (imgs_true <= 1).all()
-        assert (0 <= imgs_fake).all() and (imgs_fake <= 1).all()
-        assert imgs_true.shape == imgs_fake.shape
-        assert imgs_true.shape[1:] == (self.C, self.H, self.W)
-        batch_size = imgs_true.shape[0]
-        mse = torch.mean((imgs_true.reshape(batch_size, -1).float() -
-                          imgs_fake.reshape(batch_size, -1).float()) ** 2, dim=1)
-        self.mse.append(mse)
-
-    def MSE(self):
-        """
-        Return:
-            average mse of all image pairs
-        """
-        mse = torch.cat(self.mse)
-        return mse.mean().item()
-
-    def PSNR(self):
-        """
-        Return:
-            average psnr of all image pairs
-        """
-        mse = torch.cat(self.mse)
-        psnr = 20 * torch.log10(255.0 / torch.sqrt(mse))
-        return psnr.mean().item()
+    if batch:
+        mse = 0.
+        for im1, im2 in zip(image1, image2):
+            mse += metrics.mean_squared_error(im1, im2)
+        mse /= image1.shape[0]
+    else:
+        mse = metrics.mean_squared_error(image1, image2)
+    return mse
 
 
-if __name__ == '__main__':
-    img_true = torch.rand((1, 3, 32, 32))
-    img_fake = torch.rand((1, 3, 32, 32))
-    evaluator = InpaintingEvaluator(C=3, H=32, W=32)
-    evaluator.update(img_true, img_fake)
-    print(evaluator.MSE(), evaluator.PSNR())
+def PSNR(image1, image2, batch: bool = False):
+    assert image1.shape == image2.shape
+    if isinstance(image1, torch.Tensor):
+        image1 = image1.cpu().numpy()
+    if isinstance(image2, torch.Tensor):
+        image2 = image2.cpu().numpy()
+    assert isinstance(image1, np.ndarray) and isinstance(image2, np.ndarray)
+
+    if batch:
+        psnr = 0.
+        for im1, im2 in zip(image1, image2):
+            psnr += metrics.peak_signal_noise_ratio(im1, im2)
+        psnr /= image1.shape[0]
+    else:
+        psnr = metrics.peak_signal_noise_ratio(image1, image2)
+    return psnr
+
+
+def SSIM(image1, image2, batch: bool = False):
+    assert image1.shape == image2.shape
+    if isinstance(image1, torch.Tensor):
+        image1 = image1.cpu().numpy()
+    if isinstance(image2, torch.Tensor):
+        image2 = image2.cpu().numpy()
+    assert isinstance(image1, np.ndarray) and isinstance(image2, np.ndarray)
+
+    if batch:
+        ssim = 0.
+        for im1, im2 in zip(image1, image2):
+            ssim += metrics.structural_similarity(im1, im2, channel_axis=0)
+        ssim /= image1.shape[0]
+    else:
+        ssim = metrics.structural_similarity(image1, image2, channel_axis=0)
+    return ssim

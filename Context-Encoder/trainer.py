@@ -1,7 +1,6 @@
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import imageio
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import torch
@@ -26,7 +25,7 @@ class Trainer:
         self.train_dataset, self.test_dataset, self.train_loader, self.test_loader, self.img_channels = self._get_data()
         self.G, self.D, self.optimizerG, self.optimizerD, self.BCE, self.MSE = self._prepare_training()
         self.writer = SummaryWriter(os.path.join(self.log_root, 'tensorboard'))
-        self.sample_seed = 1234
+        self.sample_testid = torch.randint(0, len(self.test_dataset), (12, ))
 
     def _get_data(self):
         print('==> Getting data...')
@@ -37,8 +36,8 @@ class Trainer:
             img_channels = 3
         else:
             raise ValueError(f'Dataset {self.config["dataset"]} is not available now.')
-        train_dataset = DatasetWithMask(train_dataset, mask_shape='center', mask_fill=0.)
-        test_dataset = DatasetWithMask(test_dataset, mask_shape='center', mask_fill=0.)
+        train_dataset = DatasetWithMask(train_dataset, mask_fill=0., mask_root=self.config['mask_root'])
+        test_dataset = DatasetWithMask(test_dataset, mask_fill=0., mask_root=self.config['mask_root'])
         train_loader = DataLoader(train_dataset, batch_size=self.config['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
         test_loader = DataLoader(test_dataset, batch_size=self.config['batch_size'], num_workers=4, pin_memory=True)
         return train_dataset, test_dataset, train_loader, test_loader, img_channels
@@ -67,33 +66,28 @@ class Trainer:
 
     def train(self):
         print('==> Training...')
-        sample_paths = []
         for ep in range(self.config['epochs']):
             self.train_one_epoch(ep)
 
             if self.config['sample_per_epochs'] and (ep + 1) % self.config['sample_per_epochs'] == 0:
-                self.sample_generator(ep, os.path.join(self.log_root, 'samples', f'epoch_{ep}.png'), self.sample_seed)
-                sample_paths.append(os.path.join(self.log_root, 'samples', f'epoch_{ep}.png'))
+                self.sample_generator(ep, os.path.join(self.log_root, 'samples', f'epoch_{ep}.png'))
 
             if self.config['save_per_epochs'] and (ep + 1) % self.config['save_per_epochs'] == 0:
                 self.save_model(os.path.join(self.log_root, 'ckpt', f'epoch_{ep}.pt'))
 
-        self.generate_gif(sample_paths, os.path.join(self.log_root, f'samples.gif'))
         self.writer.close()
 
     def train_one_epoch(self, ep):
         self.G.train()
         self.D.train()
         with tqdm(self.train_loader, desc=f'Epoch {ep}', ncols=120) as pbar:
-            for it, (img, mask_img, mask) in enumerate(pbar):
+            for it, (X, img, noise, mask) in enumerate(pbar):
                 img = img.to(device=self.device, dtype=torch.float32)
-                mask_img = mask_img.to(device=self.device, dtype=torch.float32)
-                mask = mask.to(device=self.device, dtype=torch.float32)
-                deteriorated_img = mask * mask_img + (1 - mask) * img  # deteriorated image
+                X = X.to(device=self.device, dtype=torch.float32)
 
                 # --------- train discriminator --------- #
                 # min -(E[log(D(X))] + E[log(1-D(G(X')))])
-                inpainted_img = self.G(deteriorated_img).detach()
+                inpainted_img = self.G(X).detach()
                 d_real, d_fake = self.D(img[:, :, 32:96, 32:96]), self.D(inpainted_img)
                 lossD = self.BCE(d_real, torch.ones_like(d_real)) + self.BCE(d_fake, torch.zeros_like(d_fake))
                 self.optimizerD.zero_grad()
@@ -103,7 +97,7 @@ class Trainer:
 
                 # --------- train generator --------- #
                 # min lambda_adv * E[-log(D(G(X'))] + lambda_rec * E[L2(G(X'),X)]
-                inpainted_img = self.G(deteriorated_img)
+                inpainted_img = self.G(X)
                 d_fake = self.D(inpainted_img)
                 loss_adv = self.BCE(d_fake, torch.ones_like(d_fake))
                 loss_rec = self.MSE(inpainted_img, img[:, :, 32:96, 32:96])
@@ -116,15 +110,13 @@ class Trainer:
                 self.writer.add_scalar('G/rec_loss', loss_rec.item(), it + ep * len(self.train_loader))
 
     @torch.no_grad()
-    def sample_generator(self, ep: int, savepath: str, sample_seed=None):
+    def sample_generator(self, ep: int, savepath: str):
         self.G.eval()
-        rnd_generator = torch.random.manual_seed(sample_seed) if sample_seed else None
-        sample_testid = torch.randint(0, len(self.test_dataset), (12, ), generator=rnd_generator)
         imgs, deteriorated_imgs = [], []
-        for i in sample_testid:
-            img, mask_img, mask = self.test_dataset[i]
+        for i in self.sample_testid:
+            X, img, noise, mask = self.test_dataset[i]
             imgs.append(img)
-            deteriorated_imgs.append(mask * mask_img + (1 - mask) * img)
+            deteriorated_imgs.append(X)
         imgs = torch.stack(imgs, dim=0)
         deteriorated_imgs = torch.stack(deteriorated_imgs, dim=0)
         rec_imgs = imgs.clone()
@@ -140,8 +132,3 @@ class Trainer:
         ax.set_title(f'Epoch {ep}')
         fig.savefig(savepath, dpi=150, bbox_inches='tight')
         plt.close(fig)
-
-    @staticmethod
-    def generate_gif(img_paths, savepath, duration=0.1):
-        images = [imageio.imread(p) for p in img_paths]
-        imageio.mimsave(savepath, images, 'GIF', duration=duration)

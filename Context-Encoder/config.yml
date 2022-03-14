@@ -3,6 +3,7 @@ exp_name: ~
 
 dataset: celeba
 dataroot: ../../data
+mask_root: ../../data/Masks/center_mask
 
 epochs: 50
 batch_size: 256
