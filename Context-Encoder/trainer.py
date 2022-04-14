@@ -75,6 +75,7 @@ class Trainer:
             if self.config['save_per_epochs'] and (ep + 1) % self.config['save_per_epochs'] == 0:
                 self.save_model(os.path.join(self.log_root, 'ckpt', f'epoch_{ep}.pt'))
 
+        self.save_model(os.path.join(self.log_root, 'model.pt'))
         self.writer.close()
 
     def train_one_epoch(self, ep):

@@ -32,7 +32,7 @@ class DatasetWithMask(Dataset):
         Returns:
             deteriorated image, ground-truth image, noise, mask
 
-        The deteriorated image can be calculated as: (1 - mask) * img + mask * mask_img
+        The deteriorated image can be calculated as: (1 - mask) * img + mask * noise
         """
         img = self.dataset[item]
         if isinstance(img, tuple):
@@ -75,6 +75,7 @@ def _test():
     # base_dataset = torchvision.datasets.Places365(root='../data', split='train-standard', download=True)
     mask_dataset = DatasetWithMask(dataset=base_dataset, mask_fill=0., mask_root='../data/Masks/irregular_mask')
     X, img, noise, mask = mask_dataset[1234]
+    print(mask)
     plt.imshow(T.ToPILImage()((X + 1) / 2))
     plt.show()
 

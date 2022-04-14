@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from PIL import Image
 from tqdm import tqdm
 import torch
@@ -10,6 +12,7 @@ from torchvision.utils import save_image
 import models
 from dataset import DatasetWithMask
 from utils import metrics
+from utils.general_utils import makedirs
 
 
 class Tester:
@@ -48,7 +51,7 @@ class Tester:
         return mse / total, psnr / total, ssim / total
 
     @torch.no_grad()
-    def predict(self, img_path, save_path):
+    def predict_single(self, img_path, save_path):
         assert os.path.exists(img_path) and os.path.isfile(img_path)
         self.G.eval()
         transforms = T.Compose([T.Resize((128, 128)), T.ToTensor(), T.Normalize(mean=[0.5]*self.img_channels, std=[0.5]*self.img_channels)])
@@ -57,3 +60,16 @@ class Tester:
         img = img.to(device=self.device)
         img[:, :, 32:96, 32:96] = self.G(img)
         save_image(img, save_path, normalize=True, value_range=(-1, 1))
+
+    @torch.no_grad()
+    def predict(self, predict_dir):
+        img_dir = os.path.join(predict_dir, 'img')
+        fake_dir = os.path.join(predict_dir, 'fake')
+        assert os.path.exists(img_dir) and os.path.isdir(img_dir), f'{img_dir} is not a valid directory'
+        makedirs(fake_dir)
+        files = os.listdir(img_dir)
+        for file in files:
+            img_path = os.path.join(img_dir, file)
+            if os.path.isfile(img_path) and os.path.splitext(file)[1] in ['.jpg', '.png', '.jpeg']:
+                save_path = os.path.join(fake_dir, file)
+                self.predict_single(img_path=img_path, save_path=save_path)

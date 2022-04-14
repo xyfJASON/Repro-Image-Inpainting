@@ -10,8 +10,19 @@
 
 2. Modify the configuration file `config.yml`
 
-   - Set `dataroot` to where you save the dataset, and `mask_root` to where you save the mask images.
-   - Set hyperparameters such as `lr`, `betas`, `batch_size`, etc.
+   | Parameter                     | Description                                                  |
+   | ----------------------------- | ------------------------------------------------------------ |
+   | `use_gpu`                     | Use GPU or CPU. Default: `true`.                             |
+   | `exp_name`                    | Name of current experiment. If None (`~`), will be replaced by running time.<br/>Results will be saved to `./runs/{exp_name}`. |
+   | `dataset`                     | Dataset to use. Options: `celeba`.                           |
+   | `dataroot`                    | Path to pre-downloaded dataset.                              |
+   | `mask_root`                   | Path to pre-downloaded mask images.                          |
+   | `epochs`                      | Training epochs.                                             |
+   | `batch_size`                  | Batch size.                                                  |
+   | `lambda_rec`<br/>`lambda_adv` | Coefficients of two losses.                                  |
+   | `adam`                        | Optimizer configurations.                                    |
+   | `sample_per_epochs`           | Interval for sampling the generator.                         |
+   | `save_per_epochs`             | Interval for saving checkpoints.                             |
 
 3. Run command:
 
@@ -34,15 +45,15 @@
    Arguments:
 
    - `MODEL_PATH`: path to the saved model
-   - `DATASET`: choose a dataset to evaluate on, e.g., `celeba`
-   - `DATAROOT`: path to downloaded dataset
-   - `MASK_ROOT`: path to the directory that contains mask images
+   - `DATASET`: dataset to evaluate on. Options: `celeba`
+   - `DATAROOT`: path to pre-downloaded dataset
+   - `MASK_ROOT`: path to pre-downloaded mask images
 
 
 
 ## Prediction
 
-1. Put images to be inpainted under a directory
+1. Create a directory `PREDICT_DIR`, put images to be inpainted under `PREDICT_DIR/img/`
 
 2. Run command:
 
@@ -60,8 +71,6 @@
 
 
 ## Results
-
-
 
 |                  | MSE                  | PSNR               | SSIM               |
 | ---------------- | -------------------- | ------------------ | ------------------ |

@@ -2,6 +2,12 @@ import os
 import shutil
 import yaml
 import torch
+import datetime
+
+
+def makedirs(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
 def optimizer_to_device(optimizer, device):
@@ -16,7 +22,7 @@ def parse_config(config_path: str):
         config = yaml.safe_load(f)
 
     if config['exp_name'] is None:
-        raise ValueError('exp_name missing')
+        config['exp_name'] = datetime.datetime.now().strftime('exp-%Y-%m-%d-%H-%M-%S')
 
     device = torch.device('cuda' if config['use_gpu'] and torch.cuda.is_available() else 'cpu')
     print('using device:', device)
@@ -33,11 +39,10 @@ def parse_config(config_path: str):
             else:
                 exit()
 
-    if config.get('save_per_epochs') and not os.path.exists(os.path.join(logroot, 'ckpt')):
-        os.makedirs(os.path.join(logroot, 'ckpt'))
+    if config.get('save_per_epochs'):
+        makedirs(os.path.join(logroot, 'ckpt'))
 
-    if not os.path.exists(os.path.join(logroot, 'tensorboard')):
-        os.makedirs(os.path.join(logroot, 'tensorboard'))
+    makedirs(os.path.join(logroot, 'tensorboard'))
 
     if not os.path.exists(os.path.join(logroot, 'config.yml')):
         shutil.copyfile(config_path, os.path.join(logroot, 'config.yml'))
