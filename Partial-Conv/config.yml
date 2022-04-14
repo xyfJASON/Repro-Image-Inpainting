@@ -1,0 +1,23 @@
+use_gpu: true
+exp_name: ~
+
+dataset: celeba
+dataroot: ../../data
+mask_root: ../../data/Masks/irregular_mask
+
+epochs: 50
+batch_size: 64
+
+lambda_valid: 1
+lambda_hole: 6
+lambda_perceptual: 0.05
+lambda_style: 120
+lambda_tv: 0.1
+
+adam:
+  lr: 0.0002
+  betas: [0.5, 0.999]
+
+sample_per_epochs: 1
+
+save_per_epochs: 10
