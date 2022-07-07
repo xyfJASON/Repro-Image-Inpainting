@@ -5,6 +5,9 @@ dataset: celeba
 dataroot: ../../data
 mask_root: ../../data/Masks/irregular_mask
 
+img_size: 128
+n_layer: 7
+
 epochs: 50
 batch_size: 64
 

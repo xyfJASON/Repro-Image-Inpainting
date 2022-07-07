@@ -4,9 +4,7 @@
 
 :small_orange_diamond: For simplicity (and my laziness), I skipped the fine-tuning process as stated in the original paper.
 
-:small_orange_diamond: I didn't replace the pixels outside the masked area in the output image with ground-truth.
-
-:small_red_triangle: Theoretically, result of Partial-Conv should not be affected by pixels in masked area. However, as I change those pixels, the result changes too. I wonder if it's due to bugs in my code.
+:small_orange_diamond: During training, pixels outside the masked area in the output image is not replaced by the ground-truth. However, they are replaced when evaluating or predicting.
 
 
 
@@ -16,13 +14,15 @@
 
 2. Modify the configuration file `config.yml`
 
-   | Parameter                                                    | Description                                                  |
+   | Arguments                                                    | Descriptions                                                 |
    | ------------------------------------------------------------ | ------------------------------------------------------------ |
    | `use_gpu`                                                    | Use GPU or CPU. Default: `true`.                             |
-   | `exp_name`                                                   | Name of current experiment. If None (`~`), will be replaced by running time.<br/>Results will be saved to `./runs/{exp_name}`. |
+   | `exp_name`                                                   | Name of current experiment. If None (`~`), will be replaced by running time.<br/>Results will be saved to `./runs/{exp_name}/`. |
    | `dataset`                                                    | Dataset to use. Options: `celeba`.                           |
    | `dataroot`                                                   | Path to pre-downloaded dataset.                              |
    | `mask_root`                                                  | Path to pre-downloaded mask images.                          |
+   | `img_size`                                                   | Size of the input images.                                    |
+   | `n_layer`                                                    | Number of layers in generator. Make sure that `2**n_layer <= img_size` |
    | `epochs`                                                     | Training epochs.                                             |
    | `batch_size`                                                 | Batch size.                                                  |
    | `lambda_valid`<br/>`lambda_hole`<br/>`lambda_perceptual`<br/>`lambda_style`<br/>`lambda_tv` | Coefficients of five losses.                                 |
@@ -33,10 +33,12 @@
 3. Run command:
 
    ```shell
-   python main.py --mode train
+   python train.py [--config_path path]
    ```
 
-4. The result will be saved to `runs/exp_name/` where `exp_name` is set in `config.yml`.
+   Default `config_path` is `./config.yml`.
+
+4. The result will be saved to `./runs/{exp_name}/` where `exp_name` is set in configuration file.
 
 
 
@@ -45,15 +47,27 @@
 1. Run command:
 
    ```shell
-   python main.py --mode evaluate --model_path MODEL_PATH --dataset DATASET --dataroot DATAROOT --mask_root MASK_ROOT
+   python evaluate.py \
+   --model_path ./runs/celeba-128/model.pt \
+   --img_size 128 \
+   --img_channels 3 \
+   --n_layer 7 \
+   --dataset celeba \
+   --dataroot ../../data \
+   --mask_root ../../data/Masks/irregular_mask \
+   --batch_size 128
    ```
-
+   
    Arguments:
-
-   - `MODEL_PATH`: path to the saved model
-   - `DATASET`: dataset to evaluate on. Options: `celeba`
-   - `DATAROOT`: path to pre-downloaded dataset
-   - `MASK_ROOT`: path to pre-downloaded mask images
+   
+   - `model_path`: path to the saved model
+   - `img_size`: size of the input images
+   - `img_channels`: number of channels of the input images
+   - `n_layer`: number of layers in generator
+   - `dataset`: dataset to evaluate on. Options: `celeba`
+   - `dataroot`: path to pre-downloaded dataset
+   - `mask_root`: path to pre-downloaded mask images
+   - `batch_size`: batch size
 
 
 
@@ -64,27 +78,37 @@
 2. Run command:
 
    ```shell
-   python main.py --mode predict --model_path MODEL_PATH --predict_dir PREDICT_DIR
+   python predict.py \
+   --model_path ./runs/celeba-128/model.pt \
+   --img_size 128 \
+   --img_channels 3 \
+   --n_layer 7 \
+   --predict_dir ./test/celeba-128
    ```
 
    Arguments:
 
-   - `MODEL_PATH`: path to the saved model
-   - `PREDICT_DIR`: directory containing images to be inpainted
+   - `model_path`: path to the saved model
+   - `img_size`: size of the input images
+   - `img_channels`: number of channels of the input images
+   - `n_layer`: number of layers in generator
+   - `predict_dir`: directory containing images to be inpainted
 
-3. Result will be saved to `PREDICT_DIR/fake/`
+3. Result will be saved to `PREDICT_DIR/fake/`.
 
 
 
 ## Results
 
-|        | MSE                  | PSNR              | SSIM               |
-| ------ | -------------------- | ----------------- | ------------------ |
-| CelebA | 0.003286094502756362 | 26.87414924543685 | 0.8951046452868284 |
+|            |          MSE          |       PSNR        |        SSIM        |
+| ---------- | :-------------------: | :---------------: | :----------------: |
+| celeba-128 | 0.0027541474684465448 | 29.26178102017389 | 0.9256247309707542 |
+
+Note: The results are calculated on the composited output, i.e., replacing pixels outside the masked area with the ground-truth.
 
 
 
-### CelebA
+### CelebA (128x128)
 
-<img src="./assets/celeba_epoch_49.png" width=400 />
+<img src="./assets/celeba-128.png" width=400 />
 

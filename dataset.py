@@ -62,6 +62,8 @@ class DatasetWithMask(Dataset):
         mask = Image.open(self.mask_paths[rnd])
         mask = T.Resize(img.shape[-2:])(mask)
         mask = T.ToTensor()(mask)  # [0, 1]
+        mask[mask < 0.5] = 0
+        mask[mask >= 0.5] = 1
         return mask
 
 
