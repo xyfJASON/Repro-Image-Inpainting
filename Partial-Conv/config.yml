@@ -1,9 +1,8 @@
 use_gpu: true
-exp_name: ~
 
 dataset: celeba
 dataroot: ../../data
-mask_root: ../../data/Masks/irregular_mask
+mask_type: brushes  # string or path
 
 img_size: 128
 n_layer: 7

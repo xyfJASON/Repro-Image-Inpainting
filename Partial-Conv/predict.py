@@ -58,11 +58,11 @@ def predict(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', help='path to the saved model')
+    parser.add_argument('--model_path', required=True, help='path to the saved model')
     parser.add_argument('--img_size', type=int, default=128, help='size of the image')
     parser.add_argument('--img_channels', type=int, default=3, help='# of image channels')
     parser.add_argument('--n_layer', type=int, default=7, help='# of layers in generator')
-    parser.add_argument('--predict_dir', help='directory containing images to be inpainted')
+    parser.add_argument('--predict_dir', required=True, help='directory containing images to be inpainted')
     parser.add_argument('--cpu', action='store_true', help='use cpu instead of cuda')
     args = parser.parse_args()
     predict(args)

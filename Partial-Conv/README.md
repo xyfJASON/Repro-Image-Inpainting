@@ -17,10 +17,9 @@
    | Arguments                                                    | Descriptions                                                 |
    | ------------------------------------------------------------ | ------------------------------------------------------------ |
    | `use_gpu`                                                    | Use GPU or CPU. Default: `true`.                             |
-   | `exp_name`                                                   | Name of current experiment. If None (`~`), will be replaced by running time.<br/>Results will be saved to `./runs/{exp_name}/`. |
    | `dataset`                                                    | Dataset to use. Options: `celeba`.                           |
    | `dataroot`                                                   | Path to pre-downloaded dataset.                              |
-   | `mask_root`                                                  | Path to pre-downloaded mask images.                          |
+   | `mask_type`                                                  | Type of mask. Options: `center`, `rectangles`, `brushes` or path to pre-downloaded mask images. |
    | `img_size`                                                   | Size of the input images.                                    |
    | `n_layer`                                                    | Number of layers in generator. Make sure that `2**n_layer <= img_size` |
    | `epochs`                                                     | Training epochs.                                             |
@@ -29,45 +28,37 @@
    | `adam`                                                       | Optimizer configurations.                                    |
    | `sample_per_epochs`                                          | Interval for sampling the generator.                         |
    | `save_per_epochs`                                            | Interval for saving checkpoints.                             |
-
+   
 3. Run command:
 
    ```shell
-   python train.py [--config_path path]
+   python train.py [--config_path CONFIG_PATH]
    ```
 
    Default `config_path` is `./config.yml`.
 
-4. The result will be saved to `./runs/{exp_name}/` where `exp_name` is set in configuration file.
+4. The result will be saved to `./runs/{current_time}/`.
 
 
 
 ## Evaluation
 
-1. Run command:
+Run command:
 
-   ```shell
-   python evaluate.py \
-   --model_path ./runs/celeba-128/model.pt \
-   --img_size 128 \
-   --img_channels 3 \
-   --n_layer 7 \
-   --dataset celeba \
-   --dataroot ../../data \
-   --mask_root ../../data/Masks/irregular_mask \
-   --batch_size 128
-   ```
-   
-   Arguments:
-   
-   - `model_path`: path to the saved model
-   - `img_size`: size of the input images
-   - `img_channels`: number of channels of the input images
-   - `n_layer`: number of layers in generator
-   - `dataset`: dataset to evaluate on. Options: `celeba`
-   - `dataroot`: path to pre-downloaded dataset
-   - `mask_root`: path to pre-downloaded mask images
-   - `batch_size`: batch size
+```shell
+python evaluate.py --model_path MODEL_PATH [--img_size IMG_SIZE] [--img_channels IMG_CHANNELS] [--n_layer N_LAYER] --dataset {celeba} --dataroot DATAROOT --mask_type MASK_TYPE [--batch_size BATCH_SIZE] [--cpu]
+```
+
+Arguments:
+
+- `model_path`: path to the saved model
+- `img_size`: size of the input images, default 128
+- `img_channels`: number of channels of the input images, default 3
+- `n_layer`: number of layers in generator, default 7
+- `dataset`: dataset to evaluate on. Options: `celeba`
+- `dataroot`: path to pre-downloaded dataset
+- `mask_type`: a string of {'center', 'rectangles', 'brushes'} or path to pre-downloaded mask images
+- `batch_size`: batch size, default 128
 
 
 
@@ -78,33 +69,28 @@
 2. Run command:
 
    ```shell
-   python predict.py \
-   --model_path ./runs/celeba-128/model.pt \
-   --img_size 128 \
-   --img_channels 3 \
-   --n_layer 7 \
-   --predict_dir ./test/celeba-128
+   python predict.py --model_path MODEL_PATH [--img_size IMG_SIZE] [--img_channels IMG_CHANNELS] [--n_layer N_LAYER] --predict_dir PREDICT_DIR [--cpu]
    ```
-
+   
    Arguments:
-
+   
    - `model_path`: path to the saved model
-   - `img_size`: size of the input images
-   - `img_channels`: number of channels of the input images
-   - `n_layer`: number of layers in generator
+   - `img_size`: size of the input images, default 128
+   - `img_channels`: number of channels of the input images, default 3
+   - `n_layer`: number of layers in generator, default 7
    - `predict_dir`: directory containing images to be inpainted
-
+   
 3. Result will be saved to `PREDICT_DIR/fake/`.
 
 
 
 ## Results
 
-|            |          MSE          |       PSNR        |        SSIM        |
-| ---------- | :-------------------: | :---------------: | :----------------: |
-| celeba-128 | 0.0027541474684465448 | 29.26178102017389 | 0.9256247309707542 |
+|            |         MSE          |       PSNR       |        SSIM        |
+| ---------- | :------------------: | :--------------: | :----------------: |
+| celeba-128 | 0.003472036657023335 | 27.2345332661083 | 0.9115044737062835 |
 
-Note: The results are calculated on the composited output, i.e., replacing pixels outside the masked area with the ground-truth.
+Note: The results are calculated on the composited output, i.e., pixels outside the masked area are replaced by the ground-truth.
 
 
 

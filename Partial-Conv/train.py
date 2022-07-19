@@ -1,8 +1,12 @@
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import yaml
+import shutil
+import datetime
 import argparse
 from tqdm import tqdm
+
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -13,47 +17,67 @@ from torchvision.utils import save_image
 
 import models
 from loss import ReconstructLoss, PerceptualLoss, StyleLoss, TVLoss
-from utils.general_utils import parse_config, makedirs
+from utils.general_utils import makedirs
 from dataset import DatasetWithMask
 
 
 class Trainer:
     def __init__(self, config_path: str):
-        self.config, self.device, self.log_root = parse_config(config_path)
-        makedirs(os.path.join(self.log_root, 'samples'))
-        self.train_dataset, self.test_dataset, self.train_loader, self.test_loader, self.img_channels = self._get_data()
-        self.G, self.optimizerG, self.Loss_reconstruct, self.Loss_perceptual, self.Loss_style, self.Loss_tv = self._prepare_training()
+        # ====================================================== #
+        # CONFIGURATIONS
+        # ====================================================== #
+        with open(config_path, 'r') as f:
+            self.config = yaml.safe_load(f)
+
+        self.log_root = os.path.join('runs', datetime.datetime.now().strftime('exp-%Y-%m-%d-%H-%M-%S'))
+        print('log directory:', self.log_root)
+
+        self.device = torch.device('cuda' if self.config['use_gpu'] and torch.cuda.is_available() else 'cpu')
+        print('using device:', self.device)
+
+        if self.config.get('save_per_epochs'):
+            makedirs(os.path.join(self.log_root, 'ckpt'))
+
+        makedirs(os.path.join(self.log_root, 'tensorboard'))
         self.writer = SummaryWriter(os.path.join(self.log_root, 'tensorboard'))
 
-    def _get_data(self):
+        if self.config.get('sample_per_epochs'):
+            makedirs(os.path.join(self.log_root, 'samples'))
+
+        if not os.path.exists(os.path.join(self.log_root, 'config.yml')):
+            shutil.copyfile(config_path, os.path.join(self.log_root, 'config.yml'))
+
+        # ====================================================== #
+        # DATA
+        # ====================================================== #
         print('==> Getting data...')
         if self.config['dataset'] == 'celeba':
-            img_channels = 3
+            self.img_channels = 3
             transforms = T.Compose([T.Resize((self.config['img_size'], self.config['img_size'])),
                                     T.ToTensor(),
-                                    T.Normalize(mean=[0.5]*img_channels, std=[0.5]*img_channels)])
-            train_dataset = dset.CelebA(root=self.config['dataroot'], split='train', transform=transforms, download=False)
-            test_dataset = dset.CelebA(root=self.config['dataroot'], split='test', transform=transforms, download=False)
+                                    T.Normalize(mean=[0.5]*self.img_channels, std=[0.5]*self.img_channels)])
+            self.train_dataset = dset.CelebA(root=self.config['dataroot'], split='train', transform=transforms, download=False)
+            self.test_dataset = dset.CelebA(root=self.config['dataroot'], split='test', transform=transforms, download=False)
         else:
             raise ValueError(f'Dataset {self.config["dataset"]} is not available now.')
-        train_dataset = DatasetWithMask(train_dataset, mask_fill=0., mask_root=self.config['mask_root'])
-        test_dataset = DatasetWithMask(test_dataset, mask_fill=0., mask_root=self.config['mask_root'])
-        train_loader = DataLoader(train_dataset, batch_size=self.config['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
-        test_loader = DataLoader(test_dataset, batch_size=self.config['batch_size'], num_workers=4, pin_memory=True)
-        return train_dataset, test_dataset, train_loader, test_loader, img_channels
 
-    def _prepare_training(self):
-        print('==> Preparing training...')
-        G = models.Generator(self.img_channels, self.config['n_layer'])
-        G.to(device=self.device)
-        optimizerG = optim.Adam(G.parameters(), lr=self.config['adam']['lr'], betas=self.config['adam']['betas'])
+        self.train_dataset = DatasetWithMask(self.train_dataset, mask_type=self.config['mask_type'], mask_fill=0.)
+        self.test_dataset = DatasetWithMask(self.test_dataset, mask_type=self.config['mask_type'], mask_fill=0.)
+        self.train_loader = DataLoader(self.train_dataset, batch_size=self.config['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
+        self.test_loader = DataLoader(self.test_dataset, batch_size=self.config['batch_size'], num_workers=4, pin_memory=True)
+
+        # ====================================================== #
+        # DEFINE MODELS, OPTIMIZERS, etc.
+        # ====================================================== #
+        self.G = models.Generator(self.img_channels, self.config['n_layer'])
+        self.G.to(device=self.device)
+        self.optimizerG = optim.Adam(self.G.parameters(), lr=self.config['adam']['lr'], betas=self.config['adam']['betas'])
         vgg16 = models.VGG16FeatureExtractor()
         vgg16.to(device=self.device)
-        Loss_reconstruct = ReconstructLoss()
-        Loss_perceptual = PerceptualLoss(vgg16)
-        Loss_style = StyleLoss(vgg16)
-        Loss_tv = TVLoss()
-        return G, optimizerG, Loss_reconstruct, Loss_perceptual, Loss_style, Loss_tv
+        self.Loss_reconstruct = ReconstructLoss()
+        self.Loss_perceptual = PerceptualLoss(vgg16)
+        self.Loss_style = StyleLoss(vgg16)
+        self.Loss_tv = TVLoss()
 
     def load_model(self, model_path):
         ckpt = torch.load(model_path, map_location='cpu')

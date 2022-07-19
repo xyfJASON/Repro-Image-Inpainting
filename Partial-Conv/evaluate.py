@@ -34,13 +34,14 @@ def evaluate(G, data_loader, device):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', help='path to the saved model')
+    parser.add_argument('--model_path', required=True, help='path to the saved model')
     parser.add_argument('--img_size', type=int, default=128, help='size of the image')
     parser.add_argument('--img_channels', type=int, default=3, help='# of image channels')
     parser.add_argument('--n_layer', type=int, default=7, help='# of layers in generator')
-    parser.add_argument('--dataset', choices=['celeba'], help='dataset to evaluate on. Options: celeba')
-    parser.add_argument('--dataroot', help='path to pre-downloaded dataset')
-    parser.add_argument('--mask_root', help='path to pre-downloaded mask images')
+    parser.add_argument('--dataset', choices=['celeba'], required=True, help='dataset to evaluate on. Options: celeba')
+    parser.add_argument('--dataroot', required=True, help='path to pre-downloaded dataset')
+    parser.add_argument('--mask_type', required=True, help="a string of {'center', 'rectangles', 'brushes'} "
+                                                           "or path to pre-downloaded mask images")
     parser.add_argument('--batch_size', type=int, default=128, help='batch size')
     parser.add_argument('--cpu', action='store_true', help='use cpu instead of cuda')
     args = parser.parse_args()
@@ -58,7 +59,7 @@ def main():
         test_dataset = dset.CelebA(root=args.dataroot, split='test', transform=transforms, download=False)
     else:
         raise ValueError(f'Dataset {args.dataset} is not available now.')
-    test_dataset = DatasetWithMask(test_dataset, mask_fill=0., mask_root=args.mask_root)
+    test_dataset = DatasetWithMask(test_dataset, mask_type=args.mask_type, mask_fill=0.)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, pin_memory=True)
 
     mse, psnr, ssim = evaluate(G, test_loader, device)
